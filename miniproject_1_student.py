@@ -410,6 +410,8 @@ def get_sorted_cosine_similarity(embeddings_metadata):
                     st.session_state[cache_key][cat] = get_glove_embeddings(cat, embeddings_metadata["word_index_dict"], embeddings_metadata["embeddings"], embeddings_metadata["model_type"])
 
         cat_vec = st.session_state[cache_key].get(cat)
+        
+        # 3. 計算相似度
         if cat_vec is not None and np.linalg.norm(cat_vec) > 0:
             cosine_sim[i] = cosine_similarity(query_vec, cat_vec)
         else:
