@@ -566,7 +566,7 @@ if __name__ == "__main__":
 
         st.write("")
         st.write(
-            "Demo developed by [Your Name](https://www.linkedin.com/in/your_id/ - Optional)"
+            "Demo developed by [Chia-En (Terry) Wu](https://www.linkedin.com/in/chia-en-wu-66977623a/)"
         )
         
 
