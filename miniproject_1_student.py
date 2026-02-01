@@ -303,11 +303,17 @@ def cosine_similarity(x, y):
     ##################################
     ### TODO: Add code here (10 pts) ###
     ##################################
-    cosine_similarity = np.dot(x, y) / (np.linalg.norm(x) * np.linalg.norm(y))
-    cosine_similarity_exponentiated = np.exp(cosine_similarity)
-    return cosine_similarity_exponentiated
-
+    norm_x = np.linalg.norm(x)
+    norm_y = np.linalg.norm(y)
     
+    if norm_x == 0 or norm_y == 0:
+        print("One of the vectors is all zeros")
+        return 1.0 
+        
+    dot_val = np.dot(x, y) / (norm_x * norm_y)
+    
+    return np.exp(dot_val*20)
+
 
     
 # Task II: Average Glove Embedding Calculation
@@ -378,41 +384,39 @@ def get_sorted_cosine_similarity(embeddings_metadata):
     """
     categories = st.session_state.categories.split(" ")
     cosine_sim = {} 
-    
     query_text = st.session_state.text_search
     model_type = embeddings_metadata.get("embedding_model")
+    model_name = embeddings_metadata.get("model_name")
     
     if model_type == "glove":
-        word_index_dict = embeddings_metadata["word_index_dict"]
-        embeddings = embeddings_metadata["embeddings"]
-        glove_type = embeddings_metadata["model_type"]
-        
-        query_vec = averaged_glove_embeddings_gdrive(query_text, word_index_dict, embeddings, glove_type)
-        
-        for i, cat in enumerate(categories):
-            cat_vec = get_glove_embeddings(cat, word_index_dict, embeddings, glove_type)
-            cosine_sim[i] = cosine_similarity(query_vec, cat_vec)
-
+        query_vec = averaged_glove_embeddings_gdrive(query_text, embeddings_metadata["word_index_dict"], embeddings_metadata["embeddings"], embeddings_metadata["model_type"])
+    elif model_type == "openai":
+        query_vec = get_openai_embeddings(query_text, model_name)
     else:
-        model_name = embeddings_metadata["model_name"]
-        cache_key = f"cat_embed_{model_type}_{model_name}"
+        query_vec = get_sentence_transformer_embeddings(query_text, model_name)
+
+    cache_key = f"cat_embed_{model_type}_{model_name}"
+    if cache_key not in st.session_state:
+        st.session_state[cache_key] = {}
+
+    for i, cat in enumerate(categories):
+        if cat not in st.session_state[cache_key]:
+            with st.spinner(f"Fetching embedding for category: {cat}..."):
+                if model_type == "openai":
+                    st.session_state[cache_key][cat] = get_openai_embeddings(cat, model_name)
+                elif model_type == "transformers":
+                    st.session_state[cache_key][cat] = get_sentence_transformer_embeddings(cat, model_name)
+                elif model_type == "glove":
+                    st.session_state[cache_key][cat] = get_glove_embeddings(cat, embeddings_metadata["word_index_dict"], embeddings_metadata["embeddings"], embeddings_metadata["model_type"])
+
+        cat_vec = st.session_state[cache_key].get(cat)
         
-        if cache_key not in st.session_state:
-            update_category_embeddings(embeddings_metadata)
-            
-        cat_vectors = st.session_state[cache_key]
-        
-        if model_type == "openai":
-            query_vec = get_openai_embeddings(query_text, model_name)
+        # 3. 計算相似度
+        if cat_vec is not None and np.linalg.norm(cat_vec) > 0:
+            cosine_sim[i] = cosine_similarity(query_vec, cat_vec)
         else:
-            query_vec = get_sentence_transformer_embeddings(query_text, model_name)
-            
-        for i, cat in enumerate(categories):
-            cat_vec = cat_vectors.get(cat)
-            if cat_vec is not None:
-                cosine_sim[i] = cosine_similarity(query_vec, cat_vec)
-            else:
-                cosine_sim[i] = 1.0 
+            cosine_sim[i] = 1.0
+
     return sorted(cosine_sim.items(), key=lambda x: x[1], reverse=True)
 
 
